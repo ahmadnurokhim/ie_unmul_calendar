@@ -1,6 +1,6 @@
 from __future__ import print_function
-import datetime
 from datetime import datetime, timezone, timedelta
+import pytz
 import os.path
 import regex as re
 
@@ -13,7 +13,7 @@ from googleapiclient.errors import HttpError
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
-ti_cal_id = '509a74860a1ca36f02df257463e899e06cd314009c8afca8a2172a0cbe7b6780@group.calendar.google.com'
+ie_cal_id = '509a74860a1ca36f02df257463e899e06cd314009c8afca8a2172a0cbe7b6780@group.calendar.google.com'
 
 def quickstart():
     """Shows basic usage of the Google Calendar API.
@@ -62,7 +62,7 @@ def add_event(creds, event_name, date_start, date_end, location, desc):
         },
     }
     
-    event = service.events().insert(calendarId=ti_cal_id, body=event).execute()
+    event = service.events().insert(calendarId=ie_cal_id, body=event).execute()
     print('Event created: %s' % (event.get('htmlLink')))
 
 def get_event_details(msg):
@@ -84,6 +84,7 @@ def get_event_details(msg):
         'SEMINAR PROPOSAL SKRIPSI': 'Sempro',
         'SEMINAR PROPOSAL': 'Sempro',
         'SEMINAR HASIL SKRIPSI': 'Semhas',
+        'SEMINAR HASIL PENELITIAN': 'Semhas',
         'SEMINAR HASIL': 'Semhas',
         'SIDANG SKRIPSI': 'Sidang',
         'SIDANG': 'Sidang'
@@ -97,6 +98,59 @@ def get_event_details(msg):
     location = result[10]
     desc = result[11]
     return event_name, date_start, date_end, location, desc
+
+def get_today_event(creds):
+    try:
+        service = build('calendar', 'v3', credentials=creds)
+
+        # Call the Calendar API
+        print('Getting the upcoming 10 events')
+        events_result = service.events().list(
+            calendarId=ie_cal_id, timeMin=datetime.today().replace(hour=0, minute=0, second=0) .astimezone(tz=pytz.UTC).isoformat(),
+            timeMax=datetime.today().replace(hour=23, minute=59, second=59).astimezone(tz=pytz.UTC).isoformat(),
+            singleEvents=True, orderBy='startTime').execute()
+        events = events_result.get('items', [])
+
+        if not events:
+            print('No upcoming events found.')
+            return
+
+        events_text = ""
+        for event in events:
+            start_time = datetime.strftime(datetime.fromisoformat(event['start']['dateTime']), "%a, %d %b %Y (%H.%M")
+            end_time = datetime.strftime(datetime.fromisoformat(event['end']['dateTime']), "-%H.%M)")
+            events_text = events_text + "\n" + start_time + end_time + event['summary']
+        print(events_text)
+
+    except HttpError as error:
+        print('An error occurred: %s' % error)
+
+def get_today_event(creds):
+    try:
+        service = build('calendar', 'v3', credentials=creds)
+
+        # Call the Calendar API
+        print('Getting the upcoming 10 events')
+        events_result = service.events().list(
+            calendarId=ie_cal_id, timeMin=datetime.today().replace(hour=0, minute=0, second=0) .astimezone(tz=pytz.UTC).isoformat(),
+            timeMax=datetime.today().replace(hour=23, minute=59, second=59).astimezone(tz=pytz.UTC).isoformat(),
+            singleEvents=True, orderBy='startTime').execute()
+        events = events_result.get('items', [])
+
+        if not events:
+            print('No upcoming events found.')
+            return
+
+        events_text = ""
+        for event in events:
+            start_time = datetime.strftime(datetime.fromisoformat(event['start']['dateTime']), "%H.%M")
+            end_time = datetime.strftime(datetime.fromisoformat(event['end']['dateTime']), "-%H.%M")
+            events_text = events_text + "\n" + start_time + end_time + event['summary']
+        print(events_text)
+
+    except HttpError as error:
+        print('An error occurred: %s' % error)
+
 
 if __name__ == '__main__':
     creds = quickstart()

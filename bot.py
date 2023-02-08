@@ -2,6 +2,7 @@ import telebot
 import gcal
 
 authorized_users = []
+session_status = {}
 with open('auth_users.txt', 'r') as f:
     authorized_users = f.readlines()
 
@@ -29,7 +30,7 @@ def req_auth_user(call: telebot.types.CallbackQuery):
 
 @bot.callback_query_handler(func=lambda cb: cb.data == "add_sem_sid")
 def add_sem_sid(call: telebot.types.CallbackQuery):
-    if call.from_user.id != 592416140:
+    if str(call.from_user.id) not in authorized_users:
         bot.send_message(call.from_user.id, "You're not authorized")
         return
     bot.send_message(call.from_user.id, "Send me the event in the following format:")
@@ -50,10 +51,18 @@ Your Thesis Title (Desc)
 🎓 Lecturer 4
 ''')
 
+@bot.callback_query_handler(func=lambda cb: cb.data == "add_event")
+def add_sem_sid(call: telebot.types.CallbackQuery):
+    if str(call.from_user.id) not in authorized_users:
+        bot.send_message(call.from_user.id, "You're not authorized")
+        return
+    bot.send_message(call.from_user.id, "Send me the event in the following format: NAME_AGE")
+
+
 @bot.message_handler(func=lambda msg: True)
 def reply_msg(msg: telebot.types.Message):
-    if msg.from_user.id not in authorized_users:
-        bot.reply_to(msg, "You're not authorized")
+    if str(msg.from_user.id) not in authorized_users:
+        bot.reply_to(msg, "You're not authorized"+msg.from_user.id)
         return
     if msg.text[0] != "📌":
         return

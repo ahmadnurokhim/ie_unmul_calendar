@@ -1,5 +1,8 @@
 credentials.json
 token.json
+dummy.ipynb
+creds_dummy.json
+token_dummy.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
