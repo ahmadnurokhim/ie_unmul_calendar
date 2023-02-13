@@ -3,6 +3,8 @@ import gcal
 
 authorized_users = []
 session_status = {}
+add_event_details = {}
+
 with open('auth_users.txt', 'r') as f:
     authorized_users = f.readlines()
 
@@ -18,6 +20,13 @@ def welcome(msg: telebot.types.Message):
     markup.add(telebot.types.InlineKeyboardButton("Request to be Authorized User", callback_data="req_auth_user"))
     
     bot.send_message(chat_id=msg.chat.id, text=welcome_text, reply_markup=markup, parse_mode='Markdown')
+    bot.send_message(msg.chat.id, "To clear your session, use /clear")
+
+@bot.message_handler(commands=['clear'])
+def clear_session(msg: telebot.types.Message):
+    session_status.clear()
+    add_event_details.clear()
+    bot.send_message(msg.from_user.id, "Session Cleared")
 
 @bot.callback_query_handler(func=lambda cb: cb.data == "cal_access")
 def cal_access(call: telebot.types.CallbackQuery):
@@ -50,30 +59,58 @@ Your Thesis Title (Desc)
 🎓 Lecturer 3
 🎓 Lecturer 4
 ''')
+    session_status[call.from_user.id] = "waiting_add_sem_sid"
 
 @bot.callback_query_handler(func=lambda cb: cb.data == "add_event")
 def add_sem_sid(call: telebot.types.CallbackQuery):
     if str(call.from_user.id) not in authorized_users:
         bot.send_message(call.from_user.id, "You're not authorized")
         return
-    bot.send_message(call.from_user.id, "Send me the event in the following format: NAME_AGE")
-
+    bot.send_message(call.from_user.id, "What is the event title?")
+    session_status[call.from_user.id] = "waiting_add_event_title"
+    add_event_details[call.from_user.id] = {}
 
 @bot.message_handler(func=lambda msg: True)
 def reply_msg(msg: telebot.types.Message):
-    if str(msg.from_user.id) not in authorized_users:
-        bot.reply_to(msg, "You're not authorized"+msg.from_user.id)
-        return
-    if msg.text[0] != "📌":
-        return
+    if session_status[msg.chat.id] == "waiting_add_sem_sid":
+        creds = gcal.quickstart()
+        try:
+            event_name, date_start, date_end, location, desc = gcal.get_event_details(msg.text)
+            gcal.add_event(creds, event_name, date_start, date_end, location, desc)
+            bot.reply_to(msg, f"Event created ({event_name})")
+        except Exception as e:
+            bot.reply_to(msg, f"Can't add event: {e}")
+        finally:
+            session_status[msg.chat.id] == None
 
-    creds = gcal.quickstart()
-    try:
-        event_name, date_start, date_end, location, desc = gcal.get_event_details(msg.text)
-        gcal.add_event(creds, event_name, date_start, date_end, location, desc)
-        bot.reply_to(msg, f"Event created ({event_name})")
-    except Exception as e:
-        bot.reply_to(msg, f"Can't add event: {e}")
-        
+    elif session_status[msg.chat.id] == "waiting_add_event_title":
+        bot.send_message(msg.chat.id, "When does the event start?")
+        add_event_details['title'] = msg.text
+        session_status[msg.chat.id] = "waiting_add_event_start"
+
+    elif session_status[msg.chat.id] == "waiting_add_event_start":
+        bot.send_message(msg.chat.id, "When does the event start?")
+        bot.send_message(msg.chat.id, "Use the following format\n31/07/2023 15.00")
+        add_event_details['start'] = msg.text
+        session_status[msg.chat.id] = "waiting_add_event_end"
+
+    elif session_status[msg.chat.id] == "waiting_add_event_end":
+        bot.send_message(msg.chat.id, "When does the event end?")
+        bot.send_message(msg.chat.id, "Use the following format\n31/07/2023 16.30")
+        add_event_details['end'] = msg.text
+        session_status[msg.chat.id] = "waiting_add_event_loc"
+
+    elif session_status[msg.chat.id] == "waiting_add_event_loc":
+        bot.send_message(msg.chat.id, "Where does the event will be held?")
+        add_event_details['end'] = msg.text
+        session_status[msg.chat.id] = "waiting_add_event_desc"
+
+    elif session_status[msg.chat.id] == "waiting_add_event_desc":
+        bot.send_message(msg.chat.id, "What is the event description?")
+        add_event_details['desc'] = msg.text
+
+        session_status[msg.chat.id] = None
+
+
 
 bot.infinity_polling()
